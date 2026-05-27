@@ -1,0 +1,377 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SQL Quest – HTML/JS Lernspiel</title>
+  <style>
+    :root {
+      --bg: #0f1223;
+      --panel: #181d36;
+      --accent: #5eead4;
+      --accent2: #f59e0b;
+      --text: #e9eef9;
+      --muted: #9fb1d1;
+      --ok: #4ade80;
+      --bad: #fb7185;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Inter, system-ui, Arial, sans-serif;
+      background: radial-gradient(circle at 20% 0%, #1f2650 0%, var(--bg) 45%);
+      color: var(--text);
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 16px;
+    }
+    .game {
+      width: min(1100px, 100%);
+      background: linear-gradient(180deg, #1a2142, #131831);
+      border: 1px solid #2d3a6e;
+      border-radius: 16px;
+      box-shadow: 0 20px 45px rgba(0,0,0,.35);
+      overflow: hidden;
+    }
+    header {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      justify-content: space-between;
+      align-items: center;
+      padding: 16px 20px;
+      border-bottom: 1px solid #2b3563;
+      background: rgba(255,255,255,.02);
+    }
+    .title { font-size: 1.2rem; font-weight: 700; }
+    .meta { color: var(--muted); font-size: .95rem; }
+    .badge { background: #24305e; color: #c5d5ff; padding: 6px 10px; border-radius: 999px; }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 320px 1fr;
+      min-height: 680px;
+    }
+    @media (max-width: 900px) {
+      .layout { grid-template-columns: 1fr; }
+    }
+    aside {
+      border-right: 1px solid #2b3563;
+      padding: 16px;
+      background: rgba(10,14,30,.25);
+    }
+    @media (max-width: 900px) {
+      aside { border-right: 0; border-bottom: 1px solid #2b3563; }
+    }
+    .card {
+      background: var(--panel);
+      border: 1px solid #2b3563;
+      border-radius: 12px;
+      padding: 12px;
+      margin-bottom: 12px;
+    }
+    .card h3 { margin: 0 0 10px; font-size: .95rem; color: #d9e4ff; }
+
+    #progressList {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      display: grid;
+      gap: 7px;
+      max-height: 300px;
+      overflow: auto;
+    }
+    #progressList li {
+      padding: 8px 10px;
+      border-radius: 8px;
+      background: #222b52;
+      color: #c9d8ff;
+      font-size: .88rem;
+      border: 1px solid transparent;
+    }
+    #progressList li.done { border-color: #2f835a; color: #c9ffd8; }
+    #progressList li.active { border-color: var(--accent); color: #e6fffb; }
+
+    main { padding: 18px; display: grid; gap: 12px; }
+    .scenario {
+      background: #172044;
+      border: 1px solid #2f3f7a;
+      border-radius: 12px;
+      padding: 14px;
+      display: grid;
+      grid-template-columns: 160px 1fr;
+      gap: 12px;
+      align-items: center;
+    }
+    @media (max-width: 650px) {
+      .scenario { grid-template-columns: 1fr; }
+    }
+    canvas { background: #0c1230; border-radius: 10px; border: 1px solid #33457f; width: 100%; height: auto; }
+    #scenarioText { color: #d8e4ff; line-height: 1.45; }
+
+    .prompt {
+      background: #111833;
+      border: 1px solid #2b3563;
+      border-radius: 12px;
+      padding: 14px;
+      color: #d8e4ff;
+    }
+    .prompt h2 { margin: 0 0 8px; font-size: 1.05rem; }
+    .topic { color: var(--accent2); font-weight: 700; }
+
+    textarea {
+      width: 100%;
+      min-height: 130px;
+      resize: vertical;
+      background: #0b122b;
+      color: #e6ecff;
+      border: 1px solid #39518e;
+      border-radius: 10px;
+      padding: 10px;
+      font: 600 .95rem/1.4 ui-monospace, SFMono-Regular, Menlo, monospace;
+    }
+    .controls { display: flex; gap: 10px; flex-wrap: wrap; }
+    button {
+      border: 0;
+      border-radius: 10px;
+      padding: 10px 14px;
+      font-weight: 700;
+      cursor: pointer;
+      color: #081325;
+      background: var(--accent);
+    }
+    button.secondary { background: #90a2d9; }
+    button:disabled { opacity: .5; cursor: not-allowed; }
+    .feedback {
+      border-radius: 10px;
+      padding: 10px 12px;
+      font-weight: 600;
+      border: 1px solid;
+      min-height: 46px;
+    }
+    .feedback.ok { color: #dbffe5; background: #123929; border-color: #2f835a; }
+    .feedback.bad { color: #ffdfe7; background: #3a1521; border-color: #9a3c58; }
+
+    .footer {
+      color: var(--muted);
+      font-size: .86rem;
+      margin-top: 2px;
+    }
+  </style>
+</head>
+<body>
+  <section class="game">
+    <header>
+      <div>
+        <div class="title">🧠 SQL Quest – Lernarena</div>
+        <div class="meta">Standalone HTML+JS Spiel zum Üben von SQL-Schritten</div>
+      </div>
+      <div class="badge" id="scoreBadge">Score: 0</div>
+    </header>
+
+    <div class="layout">
+      <aside>
+        <div class="card">
+          <h3>Missionen (0–10)</h3>
+          <ul id="progressList"></ul>
+        </div>
+        <div class="card">
+          <h3>Spielregeln</h3>
+          <div class="meta">Jede Runde hat neue Details. Gib SQL ein und triff die Kernidee. Für korrekte Schritte gibt es Punkte + Combo.</div>
+        </div>
+      </aside>
+
+      <main>
+        <div class="scenario">
+          <canvas id="scene" width="160" height="160"></canvas>
+          <div id="scenarioText"></div>
+        </div>
+
+        <section class="prompt">
+          <h2 id="levelTitle"></h2>
+          <div id="levelPrompt"></div>
+        </section>
+
+        <textarea id="sqlInput" placeholder="Schreibe hier deine SQL-Anweisung..."></textarea>
+        <div class="controls">
+          <button id="checkBtn">Prüfen</button>
+          <button id="hintBtn" class="secondary">Hinweis</button>
+          <button id="nextBtn" class="secondary" disabled>Nächste Mission</button>
+          <button id="restartBtn" class="secondary">Neu starten</button>
+        </div>
+        <div id="feedback" class="feedback">Los geht's 🚀</div>
+        <div class="footer">Tipp: Das Spiel erwartet Schlüsselwörter, nicht exakt dieselbe Schreibweise.</div>
+      </main>
+    </div>
+  </section>
+
+<script>
+const missions = [
+  {topic:"0. ER Baukasten", goal:"Entwerfe Entitäten und Beziehung im Kopf.",
+   prompt:(d)=>`Formuliere eine Mini-DDL für ein Shop-Szenario mit den Entitäten <b>${d.a}</b> und <b>${d.b}</b>. Nutze mindestens einen Primärschlüssel und einen Fremdschlüssel.`,
+   checks:[/create\s+table/i,/primary\s+key/i,/foreign\s+key|references/i],
+   hint:"Nutze CREATE TABLE ... PRIMARY KEY ... REFERENCES ..."},
+  {topic:"1. DB anlegen", goal:"Eine neue Datenbank erstellen.",
+   prompt:(d)=>`Lege eine Datenbank für die Expedition an. Name: <b>${d.db}</b>.`,
+   checks:[/create\s+database/i,new RegExp("\\b"+"${DB}"+"\\b","i")],
+   dynamicCheck:(s,d)=>/create\s+database/i.test(s)&&new RegExp(`\\b${d.db}\\b`,'i').test(s),
+   hint:"CREATE DATABASE datenbankname;"},
+  {topic:"2. Tabellen anlegen", goal:"Tabellen mit Datentypen bauen.",
+   prompt:(d)=>`Erzeuge die Tabelle <b>${d.table}</b> mit Spalten id, name und created_at.`,
+   checks:[/create\s+table/i,/id/i,/name/i,/created_at/i],
+   hint:"CREATE TABLE ... (id INT..., name VARCHAR(...), created_at DATE/TIMESTAMP ...)"},
+  {topic:"3. Tabellen anpassen", goal:"Schema ändern.",
+   prompt:(d)=>`Erweitere <b>${d.table}</b> um Spalte <b>${d.col}</b> (VARCHAR).`,
+   checks:[/alter\s+table/i,/add\s+column|add/i],
+   dynamicCheck:(s,d)=>/alter\s+table/i.test(s)&&/add\s+column|add/i.test(s)&&new RegExp(`\\b${d.col}\\b`,'i').test(s),
+   hint:"ALTER TABLE tabelle ADD COLUMN neue_spalte VARCHAR(100);"},
+  {topic:"4. Werte anlegen", goal:"Datensätze einfügen.",
+   prompt:(d)=>`Füge in <b>${d.table}</b> mindestens einen Datensatz ein.`,
+   checks:[/insert\s+into/i,/values/i],
+   hint:"INSERT INTO tabelle (spalte1,...) VALUES (...);"},
+  {topic:"5. Werte löschen", goal:"Datensätze entfernen.",
+   prompt:(d)=>`Lösche aus <b>${d.table}</b> alle Zeilen mit status='inactive'.`,
+   checks:[/delete\s+from/i,/where/i,/inactive/i],
+   hint:"DELETE FROM tabelle WHERE status = 'inactive';"},
+  {topic:"6. normalisieren", goal:"Redundanz vermeiden.",
+   prompt:(d)=>`Schlage SQL vor, um ${d.table} zu normalisieren: eigene Tabelle <b>${d.ref}</b> + Fremdschlüssel in ${d.table}.`,
+   checks:[/create\s+table/i,/foreign\s+key|references/i],
+   hint:"Erzeuge Referenztabelle und verknüpfe per FOREIGN KEY / REFERENCES."},
+  {topic:"7. Abfragen", goal:"Gezielte SELECTs.",
+   prompt:(d)=>`Hole alle Spalten aus <b>${d.table}</b>, aber nur 5 Zeilen.`,
+   checks:[/select/i,/from/i,/limit\s+5/i],
+   hint:"SELECT * FROM tabelle LIMIT 5;"},
+  {topic:"8. Bedingungen / sortieren", goal:"Filtern und ordnen.",
+   prompt:(d)=>`Zeige Datensätze aus <b>${d.table}</b> mit amount > 100 und sortiere nach created_at absteigend.`,
+   checks:[/where/i,/amount\s*>\s*100/i,/order\s+by/i,/desc/i],
+   hint:"... WHERE amount > 100 ORDER BY created_at DESC"},
+  {topic:"9. Joins", goal:"Tabellen verbinden.",
+   prompt:(d)=>`Verbinde <b>${d.table}</b> mit <b>${d.join}</b> über customer_id und gib name + total aus.`,
+   checks:[/join/i,/on/i,/customer_id/i,/select/i],
+   hint:"SELECT ... FROM a JOIN b ON a.customer_id = b.customer_id;"},
+  {topic:"10. Zählen rechnen gruppieren", goal:"Aggregieren wie ein Profi.",
+   prompt:(d)=>`Ermittle je Kategorie in <b>${d.table}</b> die Anzahl und den Gesamtumsatz (amount).`,
+   checks:[/group\s+by/i,/count\s*\(/i,/sum\s*\(/i],
+   hint:"SELECT category, COUNT(*), SUM(amount) FROM ... GROUP BY category;"}
+];
+
+const dataPool = {
+  db:["arena_core","sqlcamp","questdb"],
+  table:["orders","customers","missions","products"],
+  col:["nickname","region","tier","note"],
+  ref:["categories","departments","customer_types"],
+  a:["Kunde","Bestellung","Produkt"],
+  b:["Lieferung","Rechnung","Team"]
+};
+
+let state = { idx:0, score:0, combo:0, solved:Array(missions.length).fill(false), data:{} };
+
+const el = id => document.getElementById(id);
+
+function pick(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
+function generateData(){
+  return {
+    db: pick(dataPool.db), table: pick(dataPool.table), col: pick(dataPool.col), ref: pick(dataPool.ref),
+    a: pick(dataPool.a), b: pick(dataPool.b), join: pick(["customers","payments","profiles"])
+  };
+}
+
+function renderProgress(){
+  const ul = el("progressList"); ul.innerHTML = "";
+  missions.forEach((m,i)=>{
+    const li = document.createElement("li");
+    li.textContent = m.topic;
+    if(state.solved[i]) li.classList.add("done");
+    if(i===state.idx) li.classList.add("active");
+    ul.appendChild(li);
+  });
+}
+
+function drawScene(){
+  const c = el("scene"), g = c.getContext("2d");
+  g.clearRect(0,0,c.width,c.height);
+  g.fillStyle = "#0f1a45"; g.fillRect(0,0,160,160);
+  for(let i=0;i<26;i++){
+    g.fillStyle = `hsla(${190+i*3},90%,70%,${0.1+Math.random()*0.4})`;
+    g.beginPath(); g.arc(Math.random()*160, Math.random()*160, 1+Math.random()*3,0,7); g.fill();
+  }
+  const level = state.idx+1;
+  g.strokeStyle="#5eead4"; g.lineWidth=3;
+  g.strokeRect(18,18,124,124);
+  g.fillStyle="#f59e0b";
+  for(let i=0;i<level;i++) g.fillRect(28+(i%4)*28, 32+Math.floor(i/4)*22, 18, 12);
+  g.fillStyle="#d6e8ff";
+  g.font="bold 24px sans-serif";
+  g.fillText("L"+state.idx, 58, 140);
+}
+
+function currentMission(){ return missions[state.idx]; }
+
+function renderMission(){
+  const m=currentMission();
+  if(!m){
+    el("levelTitle").innerHTML = "🏁 Alle Missionen abgeschlossen!";
+    el("levelPrompt").innerHTML = `Endscore: <b>${state.score}</b>. Starte neu für neue Szenarien.`;
+    el("scenarioText").textContent = "Dein SQL-Raumschiff hat alle Datenplaneten kartiert. Beeindruckend!";
+    el("checkBtn").disabled=true; el("nextBtn").disabled=true;
+    drawScene(); renderProgress(); return;
+  }
+  const d=state.data;
+  el("levelTitle").innerHTML = `Mission ${state.idx}: <span class='topic'>${m.topic}</span>`;
+  el("levelPrompt").innerHTML = m.prompt(d);
+  el("scenarioText").innerHTML = `Szenario: In der Station <b>${d.db}</b> meldet das Team kritische Datenaufgaben. <br>${m.goal}`;
+  el("sqlInput").value="";
+  el("nextBtn").disabled=true;
+  drawScene(); renderProgress();
+}
+
+function validate(input){
+  const m=currentMission(), s=input.trim();
+  if(!s) return {ok:false,msg:"Bitte eine SQL-Anweisung eingeben."};
+  if(m.dynamicCheck){
+    const ok=m.dynamicCheck(s,state.data);
+    return ok ? {ok:true,msg:"Stark! Die Missionslogik passt."} : {ok:false,msg:"Fast! Überprüfe Tabellen-/Spaltennamen und Befehl."};
+  }
+  const missing = m.checks.filter(r=>!r.test(s));
+  if(missing.length===0) return {ok:true,msg:"Treffer! Mission erfüllt."};
+  return {ok:false,msg:`Noch nicht ganz. Es fehlen ${missing.length} Kernbaustein(e).`};
+}
+
+function setFeedback(ok,msg){
+  const f=el("feedback"); f.textContent=msg; f.className=`feedback ${ok?'ok':'bad'}`;
+}
+
+el("checkBtn").onclick = ()=>{
+  const result = validate(el("sqlInput").value);
+  if(result.ok){
+    if(!state.solved[state.idx]){
+      state.solved[state.idx]=true;
+      state.combo += 1;
+      state.score += 100 + state.combo*20;
+    }
+    el("scoreBadge").textContent = `Score: ${state.score}`;
+    el("nextBtn").disabled=false;
+    setFeedback(true, result.msg + ` Combo x${state.combo}!`);
+  }else{
+    state.combo=0;
+    setFeedback(false, result.msg);
+  }
+  renderProgress();
+};
+
+el("hintBtn").onclick = ()=> setFeedback(false, "Hinweis: " + currentMission().hint);
+el("nextBtn").onclick = ()=>{ if(state.solved[state.idx]){ state.idx++; state.data=generateData(); renderMission(); } };
+el("restartBtn").onclick = ()=>{
+  state = { idx:0, score:0, combo:0, solved:Array(missions.length).fill(false), data:generateData() };
+  el("scoreBadge").textContent = "Score: 0";
+  setFeedback(true,"Neue Runde gestartet. Viel Erfolg!");
+  el("checkBtn").disabled=false;
+  renderMission();
+};
+
+state.data = generateData();
+renderMission();
+</script>
+</body>
+</html>
